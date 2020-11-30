@@ -1,16 +1,16 @@
 import pygame, sys, random
+from pygame.math import Vector2
+
 CELL_SIZE = 40
 CELL_ROWS = 20
 CELL_COLS = 20
 HEIGHT = CELL_SIZE * CELL_COLS
 WIDTH = CELL_SIZE * CELL_ROWS
-
-FPS = 30
+FPS = 60
 
 pygame.init()
 screen = pygame.display.set_mode([HEIGHT, WIDTH])
 clock = pygame.time.Clock()
-key_pressed = ""
 
 class Food:
     def __init__(self):
@@ -24,38 +24,51 @@ class Food:
 
 class Snake:
     def __init__(self, px, py):
-        self.snake_head_px = px
-        self.snake_head_py = py
-        self.snake_head = pygame.Surface((CELL_SIZE, CELL_SIZE))
-        self.snake_head.fill((0,255,0))
+        self.body = [Vector2(px - 1, py), Vector2(px,py)]
+        self.dir = Vector2(0, 0)
+
+    def draw_snake(self):
+        for part in self.body:
+            part_rect = pygame.Rect((int(part[0] * CELL_SIZE), int(part[1] * CELL_SIZE), CELL_SIZE, CELL_SIZE))
+            pygame.draw.rect(screen, (0, 255, 0), part_rect)
+
+    def move(self):
+        body_copy = self.body[:-1]
+        body_copy.insert(0, body_copy[0] + self.dir)
+        self.body = body_copy
+
+    def warp(self):
+        if self.body[0][0] < 0 or self.body[0][0] >= CELL_ROWS:
+            self.body[0][0] %= CELL_ROWS
+        if self.body[0][1] < 0 or self.body[0][1] >= CELL_COLS:
+            self.body[0][1] %= CELL_COLS
 
 if __name__ == "__main__":
-    snake = Snake(0, WIDTH // 2)
+    UPDATE_STATE = pygame.USEREVENT
+    pygame.time.set_timer(UPDATE_STATE, 100)
+    snake = Snake(2, 2)
     food = Food()
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit()
+            if event.type == UPDATE_STATE:
+                snake.move()
+                snake.warp()
             if event.type == pygame.KEYDOWN:
-                key_pressed = event.key
-        
-        if key_pressed == pygame.K_RIGHT:
-            snake.snake_head_px += 40
-        if key_pressed == pygame.K_LEFT:
-            snake.snake_head_px -= 40
-        if key_pressed == pygame.K_UP:
-            snake.snake_head_py -= 40
-        if key_pressed == pygame.K_DOWN:
-            snake.snake_head_py += 40
-        
-        if snake.snake_head_px < 0 or snake.snake_head_px >= HEIGHT:
-            snake.snake_head_px %= HEIGHT
-        if snake.snake_head_py < 0 or snake.snake_head_py >= WIDTH:
-            snake.snake_head_py %= WIDTH
+                if event.key == pygame.K_RIGHT:
+                    snake.dir = Vector2(1, 0)
+                elif event.key == pygame.K_DOWN:
+                    snake.dir = Vector2(0, 1)
+                elif event.key == pygame.K_LEFT:
+                    snake.dir = Vector2(-1, 0)
+                elif event.key == pygame.K_UP:
+                    snake.dir = Vector2(0, -1)
 
         screen.fill((0,0,0))
-        screen.blit(snake.snake_head,(snake.snake_head_px, snake.snake_head_py))
+        snake.draw_snake()
         food.draw_food()
         pygame.display.update()
         clock.tick(FPS)
