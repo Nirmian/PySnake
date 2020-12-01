@@ -16,7 +16,7 @@ class Food:
     def __init__(self):
         self.food_px = random.randint(0, CELL_ROWS - 1)
         self.food_py = random.randint(0, CELL_COLS - 1)
-    
+
     def draw_food(self):
         food_rect = pygame.Rect(self.food_px * CELL_SIZE, self.food_py * CELL_SIZE, CELL_SIZE, CELL_SIZE)
         pygame.draw.rect(screen, (255, 0, 0), food_rect)
@@ -43,6 +43,9 @@ class Snake:
         if self.body[0][1] < 0 or self.body[0][1] >= CELL_COLS:
             self.body[0][1] %= CELL_COLS
 
+    def eat(self):
+        self.body.insert(0, self.body[0] + self.dir)
+
 if __name__ == "__main__":
     UPDATE_STATE = pygame.USEREVENT
     pygame.time.set_timer(UPDATE_STATE, 100)
@@ -57,6 +60,13 @@ if __name__ == "__main__":
             if event.type == UPDATE_STATE:
                 snake.move()
                 snake.warp()
+                if snake.body[0][0] == food.food_px and snake.body[0][1] == food.food_py:
+                    snake.eat()
+                    food = Food()
+                #TODO when snake body is size 2 snake can't eat itself.
+                elif snake.body[0] in snake.body[1:] and snake.dir != Vector2(0,0):
+                    print("You lost")
+                    pygame.quit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RIGHT:
                     snake.dir = Vector2(1, 0)
