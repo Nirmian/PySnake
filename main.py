@@ -2,10 +2,11 @@ import pygame, sys, random
 from pygame.math import Vector2
 
 CELL_SIZE = 40
-CELL_ROWS = 20
-CELL_COLS = 20
+CELL_ROWS = 25
+CELL_COLS = 25
 HEIGHT = CELL_SIZE * CELL_COLS
 WIDTH = CELL_SIZE * CELL_ROWS
+
 FPS = 60
 VALID_KEYS = [pygame.K_RIGHT, pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN]
 
@@ -53,53 +54,94 @@ class Obstacle:
         self.obstacles = []
 
 class GameUI:
-    def __init__(self):
+    def __init__(self, high_score):
         self.font = pygame.font.SysFont(None, 36)
         self.score = 0
+        self.high_score = high_score
         self.score_text = self.font.render('Score: ' + str(self.score), True, (0, 255, 0))
     def update_score(self):
         self.score += 1
         self.score_text = self.font.render('Score: ' + str(self.score), True, (0, 255, 0))
     def draw_ui(self):
         screen.blit(self.score_text, self.score_text.get_rect())
+    def update_high_score(self):
+        if self.score > self.high_score:
+            self.high_score = self.score
+    def draw_game_end(self):
+        continue_text = self.font.render('Try again? Y / N ', True, (0, 255, 0))
+        continue_text_rect = continue_text.get_rect()
+        continue_text_rect.centerx = WIDTH // 2 
+        continue_text_rect.centery = HEIGHT // 2 - 50
+
+        highest_score = self.font.render('High Score: ' + str(self.high_score), True, (0, 255, 0))
+        highest_score_rect = highest_score.get_rect()
+        highest_score_rect.centerx = WIDTH // 2 
+        highest_score_rect.centery = HEIGHT // 2
+
+        last_score = self.font.render('Your Score: ' + str(self.score), True, (0, 255, 0))
+        last_score_rect = last_score.get_rect()
+        last_score_rect.centerx = highest_score_rect.centerx
+        last_score_rect.centery = highest_score_rect.centery + 50
+
+        screen.blit(continue_text, continue_text_rect)
+        screen.blit(highest_score, highest_score_rect)
+        screen.blit(last_score, last_score_rect)
 
 if __name__ == "__main__":
     UPDATE_STATE = pygame.USEREVENT
     pygame.time.set_timer(UPDATE_STATE, 100)
-    ui = GameUI()
+    ui = GameUI(0)
     snake = Snake(2, 2)
     food = Food()
-
+    game_over = False
+    
     while True:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == UPDATE_STATE:
-                snake.move()
-                snake.warp()
-                if (snake.body[0] in snake.body[1:] and snake.dir != Vector2(0,0)) or snake.last_dir * (-1) == snake.dir:
-                    print("You lost")
-                    pygame.quit()
-                elif snake.body[0][0] == food.food_px and snake.body[0][1] == food.food_py:
-                    snake.eat()
-                    food = Food()
-                    ui.update_score()
-            if event.type == pygame.KEYDOWN and event.key in VALID_KEYS:
-                snake.last_dir = snake.dir
-
-                if event.key == pygame.K_RIGHT:
-                    snake.dir = Vector2(1, 0)
-                elif event.key == pygame.K_DOWN:
-                    snake.dir = Vector2(0, 1)
-                elif event.key == pygame.K_LEFT:
-                    snake.dir = Vector2(-1, 0)
-                elif event.key == pygame.K_UP:
-                    snake.dir = Vector2(0, -1)
-
         screen.fill((0,0,0))
-        ui.draw_ui()
-        snake.draw_snake()
-        food.draw_food()
+        if not game_over:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == UPDATE_STATE:
+                    snake.move()
+                    snake.warp()
+                    if (snake.body[0] in snake.body[1:] and snake.dir != Vector2(0,0)) or snake.last_dir * (-1) == snake.dir:
+                        game_over = True
+                        ui.update_high_score()
+                    elif snake.body[0][0] == food.food_px and snake.body[0][1] == food.food_py:
+                        snake.eat()
+                        food = Food()
+                        ui.update_score()
+                if event.type == pygame.KEYDOWN and event.key in VALID_KEYS:
+                    snake.last_dir = snake.dir
+
+                    if event.key == pygame.K_RIGHT:
+                        snake.dir = Vector2(1, 0)
+                    elif event.key == pygame.K_DOWN:
+                        snake.dir = Vector2(0, 1)
+                    elif event.key == pygame.K_LEFT:
+                        snake.dir = Vector2(-1, 0)
+                    elif event.key == pygame.K_UP:
+                        snake.dir = Vector2(0, -1)
+
+            snake.draw_snake()
+            ui.draw_ui()
+            food.draw_food()
+        else:
+            ui.draw_game_end()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_y:
+                        game_over = False
+                        ui = GameUI(ui.high_score)
+                        snake = Snake(2, 2)
+                        food = Food()
+                    if event.key == pygame.K_n:
+                        pygame.quit()
+                        sys.exit()
+            
         pygame.display.update()
         clock.tick(FPS)
