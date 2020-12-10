@@ -2,8 +2,8 @@ import pygame, sys, random
 from pygame.math import Vector2
 
 CELL_SIZE = 40
-CELL_ROWS = 25
-CELL_COLS = 25
+CELL_ROWS = 20
+CELL_COLS = 20
 HEIGHT = CELL_SIZE * CELL_COLS
 WIDTH = CELL_SIZE * CELL_ROWS
 
@@ -52,6 +52,18 @@ class Snake:
 class Obstacle:
     def __init__(self):
         self.obstacles = []
+    def set_obstacles(self, pos_vec):
+        for pos_x, pos_y in pos_vec:
+            self.obstacles.append((pos_x, pos_y))
+    def print_obstacles(self):
+        print(self.obstacles)
+        for pos in self.obstacles:
+            print(pos, pos)
+    def draw_obstacles(self):
+        for pos in self.obstacles:
+            obstacle_rect = pygame.Rect(pos[0] * CELL_SIZE, pos[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE)
+            pygame.draw.rect(screen, (64, 64, 64), obstacle_rect)
+
 
 class GameUI:
     def __init__(self, high_score):
@@ -93,6 +105,8 @@ if __name__ == "__main__":
     ui = GameUI(0)
     snake = Snake(2, 2)
     food = Food()
+    obstacles = Obstacle()
+    obstacles.set_obstacles([(0,0), (0,1), (0,2) ,(2,0), (2,1), (2,2)])
     game_over = False
     
     while True:
@@ -105,7 +119,7 @@ if __name__ == "__main__":
                 if event.type == UPDATE_STATE:
                     snake.move()
                     snake.warp()
-                    if (snake.body[0] in snake.body[1:] and snake.dir != Vector2(0,0)) or snake.last_dir * (-1) == snake.dir:
+                    if ((snake.body[0] in snake.body[1:] or snake.body[0] in obstacles.obstacles) and snake.dir != Vector2(0,0)) or snake.last_dir * (-1) == snake.dir:
                         game_over = True
                         ui.update_high_score()
                     elif snake.body[0][0] == food.food_px and snake.body[0][1] == food.food_py:
@@ -125,8 +139,9 @@ if __name__ == "__main__":
                         snake.dir = Vector2(0, -1)
 
             snake.draw_snake()
-            ui.draw_ui()
             food.draw_food()
+            obstacles.draw_obstacles()
+            ui.draw_ui()
         else:
             ui.draw_game_end()
             for event in pygame.event.get():
