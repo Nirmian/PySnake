@@ -23,6 +23,15 @@ class Food:
         food_rect = pygame.Rect(self.food_px * CELL_SIZE, self.food_py * CELL_SIZE, CELL_SIZE, CELL_SIZE)
         pygame.draw.rect(screen, (255, 0, 0), food_rect)
 
+    def spawn_food(self, obstacles):
+        px = random.randint(0, CELL_ROWS - 1)
+        py = random.randint(0, CELL_COLS - 1)
+        while (px, py) in obstacles:
+            px = random.randint(0, CELL_ROWS - 1)
+            py = random.randint(0, CELL_COLS - 1)
+        self.food_px = px
+        self.food_py = py
+
 
 class Snake:
     def __init__(self, px, py):
@@ -104,9 +113,10 @@ if __name__ == "__main__":
     pygame.time.set_timer(UPDATE_STATE, 100)
     ui = GameUI(0)
     snake = Snake(2, 2)
-    food = Food()
     obstacles = Obstacle()
     obstacles.set_obstacles([(0,0), (0,1), (0,2) ,(2,0), (2,1), (2,2)])
+    food = Food()
+    food.spawn_food(obstacles.obstacles)
     game_over = False
     
     while True:
@@ -124,7 +134,7 @@ if __name__ == "__main__":
                         ui.update_high_score()
                     elif snake.body[0][0] == food.food_px and snake.body[0][1] == food.food_py:
                         snake.eat()
-                        food = Food()
+                        food.spawn_food(obstacles.obstacles)
                         ui.update_score()
                 if event.type == pygame.KEYDOWN and event.key in VALID_KEYS:
                     snake.last_dir = snake.dir
@@ -153,7 +163,7 @@ if __name__ == "__main__":
                         game_over = False
                         ui = GameUI(ui.high_score)
                         snake = Snake(2, 2)
-                        food = Food()
+                        food.spawn_food(obstacles.obstacles)
                     if event.key == pygame.K_n:
                         pygame.quit()
                         sys.exit()
