@@ -1,4 +1,4 @@
-import pygame, sys, random
+import pygame, sys, random, json
 from pygame.math import Vector2
 
 CELL_SIZE = 40
@@ -9,10 +9,6 @@ WIDTH = CELL_SIZE * CELL_ROWS
 
 FPS = 60
 VALID_KEYS = [pygame.K_RIGHT, pygame.K_LEFT, pygame.K_UP, pygame.K_DOWN]
-
-pygame.init()
-screen = pygame.display.set_mode([HEIGHT, WIDTH])
-clock = pygame.time.Clock()
 
 class Food:
     def __init__(self):
@@ -32,10 +28,10 @@ class Food:
         self.food_px = px
         self.food_py = py
 
-
 class Snake:
-    def __init__(self, px, py):
-        self.body = [Vector2(px - 1, py), Vector2(px,py)]
+    def __init__(self):
+        self.body = []
+        self.head = (0, 0)
         self.dir = Vector2(0, 0)
         self.last_dir = Vector2(-100, -100)
 
@@ -43,6 +39,9 @@ class Snake:
         for part in self.body:
             part_rect = pygame.Rect((int(part[0] * CELL_SIZE), int(part[1] * CELL_SIZE), CELL_SIZE, CELL_SIZE))
             pygame.draw.rect(screen, (0, 255, 0), part_rect)
+
+    def spawn_snake(self, px, py):
+        self.body = [Vector2(px, py), Vector2(px - 1, py)]
 
     def move(self):
         body_copy = self.body[:-1]
@@ -61,18 +60,18 @@ class Snake:
 class Obstacle:
     def __init__(self):
         self.obstacles = []
+
     def set_obstacles(self, pos_vec):
         for pos_x, pos_y in pos_vec:
             self.obstacles.append((pos_x, pos_y))
-    def print_obstacles(self):
-        print(self.obstacles)
-        for pos in self.obstacles:
-            print(pos, pos)
+
+    def get_obstacles(self):
+        return self.obstacles
+
     def draw_obstacles(self):
         for pos in self.obstacles:
             obstacle_rect = pygame.Rect(pos[0] * CELL_SIZE, pos[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             pygame.draw.rect(screen, (64, 64, 64), obstacle_rect)
-
 
 class GameUI:
     def __init__(self, high_score):
@@ -80,14 +79,18 @@ class GameUI:
         self.score = 0
         self.high_score = high_score
         self.score_text = self.font.render('Score: ' + str(self.score), True, (0, 255, 0))
+
     def update_score(self):
         self.score += 1
         self.score_text = self.font.render('Score: ' + str(self.score), True, (0, 255, 0))
+
     def draw_ui(self):
         screen.blit(self.score_text, self.score_text.get_rect())
+
     def update_high_score(self):
         if self.score > self.high_score:
             self.high_score = self.score
+
     def draw_game_end(self):
         continue_text = self.font.render('Try again? Y / N ', True, (0, 255, 0))
         continue_text_rect = continue_text.get_rect()
@@ -101,23 +104,65 @@ class GameUI:
 
         last_score = self.font.render('Your Score: ' + str(self.score), True, (0, 255, 0))
         last_score_rect = last_score.get_rect()
-        last_score_rect.centerx = highest_score_rect.centerx
+        last_score_rect.centerx = WIDTH // 2
         last_score_rect.centery = highest_score_rect.centery + 50
 
         screen.blit(continue_text, continue_text_rect)
         screen.blit(highest_score, highest_score_rect)
         screen.blit(last_score, last_score_rect)
 
+
+class Game:
+    def __init__(self):
+        self.board = []
+        self.snake = Snake()
+        self.food = Food()
+        self.obstacles = Obstacle()
+
+    def parse_json(self, file):
+        with open(file) as f:
+            data = json.load(f)
+        global CELL_ROWS, CELL_COLS, HEIGHT, WIDTH
+        CELL_ROWS = data["rows"]
+        CELL_COLS = data["cols"]
+        HEIGHT = CELL_SIZE * CELL_COLS
+        WIDTH = CELL_SIZE * CELL_ROWS
+        self.board = data["game_state"]
+
+    def init_game(self):
+        obs_vec = []
+        for j in range(CELL_COLS):
+            for i in range(CELL_ROWS):
+                if self.board[i][j] == 1:
+                    obs_vec.append((j, i))
+                elif self.board[i][j] == 2:
+                    self.snake.head = (j, i)
+                    self.snake.spawn_snake(j, i)
+        self.obstacles.set_obstacles(obs_vec)
+        self.food.spawn_food(self.obstacles.get_obstacles())
+
+    def new_game(self):
+        self.snake.spawn_snake(self.snake.head[0], self.snake.head[1])
+        self.snake.dir = Vector2(0, 0)
+        self.snake.last_dir = Vector2(-100, -100)
+        self.food.spawn_food(self.obstacles.get_obstacles())
+
+# TODO: Use argparse for user-friendly help and usage messages.
+#       Code refactoring for main (especially those long if conditions)
+
 if __name__ == "__main__":
+    pygame.init()
+    game = Game()
+    game.parse_json(sys.argv[1])
+    screen = pygame.display.set_mode([HEIGHT, WIDTH])
+    clock = pygame.time.Clock()
+
+    game.init_game()
+    ui = GameUI(0)
+    game_over = False
+
     UPDATE_STATE = pygame.USEREVENT
     pygame.time.set_timer(UPDATE_STATE, 100)
-    ui = GameUI(0)
-    snake = Snake(2, 2)
-    obstacles = Obstacle()
-    obstacles.set_obstacles([(0,0), (0,1), (0,2) ,(2,0), (2,1), (2,2)])
-    food = Food()
-    food.spawn_food(obstacles.obstacles)
-    game_over = False
     
     while True:
         screen.fill((0,0,0))
@@ -127,30 +172,30 @@ if __name__ == "__main__":
                     pygame.quit()
                     sys.exit()
                 if event.type == UPDATE_STATE:
-                    snake.move()
-                    snake.warp()
-                    if ((snake.body[0] in snake.body[1:] or snake.body[0] in obstacles.obstacles) and snake.dir != Vector2(0,0)) or snake.last_dir * (-1) == snake.dir:
+                    game.snake.move()
+                    game.snake.warp()
+                    if ((game.snake.body[0] in game.snake.body[1:] or game.snake.body[0] in game.obstacles.get_obstacles()) and game.snake.dir != Vector2(0,0)) or game.snake.last_dir * (-1) == game.snake.dir:
                         game_over = True
                         ui.update_high_score()
-                    elif snake.body[0][0] == food.food_px and snake.body[0][1] == food.food_py:
-                        snake.eat()
-                        food.spawn_food(obstacles.obstacles)
+                    elif game.snake.body[0][0] == game.food.food_px and game.snake.body[0][1] == game.food.food_py:
+                        game.snake.eat()
+                        game.food.spawn_food(game.obstacles.get_obstacles())
                         ui.update_score()
                 if event.type == pygame.KEYDOWN and event.key in VALID_KEYS:
-                    snake.last_dir = snake.dir
+                    game.snake.last_dir = game.snake.dir
 
                     if event.key == pygame.K_RIGHT:
-                        snake.dir = Vector2(1, 0)
+                        game.snake.dir = Vector2(1, 0)
                     elif event.key == pygame.K_DOWN:
-                        snake.dir = Vector2(0, 1)
+                        game.snake.dir = Vector2(0, 1)
                     elif event.key == pygame.K_LEFT:
-                        snake.dir = Vector2(-1, 0)
+                        game.snake.dir = Vector2(-1, 0)
                     elif event.key == pygame.K_UP:
-                        snake.dir = Vector2(0, -1)
+                        game.snake.dir = Vector2(0, -1)
 
-            snake.draw_snake()
-            food.draw_food()
-            obstacles.draw_obstacles()
+            game.snake.draw_snake()
+            game.food.draw_food()
+            game.obstacles.draw_obstacles()
             ui.draw_ui()
         else:
             ui.draw_game_end()
@@ -162,8 +207,7 @@ if __name__ == "__main__":
                     if event.key == pygame.K_y:
                         game_over = False
                         ui = GameUI(ui.high_score)
-                        snake = Snake(2, 2)
-                        food.spawn_food(obstacles.obstacles)
+                        game.new_game()
                     if event.key == pygame.K_n:
                         pygame.quit()
                         sys.exit()
