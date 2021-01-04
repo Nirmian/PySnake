@@ -119,6 +119,26 @@ class Game:
         self.food = Food()
         self.obstacles = Obstacle()
 
+    def is_valid_json(self, file):
+        if not file.lower().endswith('.json'):
+            print("File given as a paramater doesn't have .json as extension")
+            return False
+        with open(file) as f:
+            data = json.load(f)
+        if "rows" not in data:
+            print("Json file doesn't have rows field.")
+            return False
+        if "cols" not in data:
+            print("Json file doesn't have cols field.")
+            return False
+        if "game_state" not in data:
+            print("Json file doesn't have game_state field.")
+            return False
+        if data["rows"] < 10 or data["cols"] < 10 or data["rows"] > 20 or data["cols"] > 20:
+            print("Rows_count and Cols_count has to be in range 10-20")
+            return False
+        return True
+
     def parse_json(self, file):
         with open(file) as f:
             data = json.load(f)
@@ -147,13 +167,19 @@ class Game:
         self.snake.last_dir = Vector2(-100, -100)
         self.food.spawn_food(self.obstacles.get_obstacles())
 
-# TODO: Use argparse for user-friendly help and usage messages.
-#       Code refactoring for main (especially those long if conditions)
-
 if __name__ == "__main__":
     pygame.init()
     game = Game()
-    game.parse_json(sys.argv[1])
+    if len(sys.argv) != 2:
+        print("Incorrect number of parameters. Example of usage: py.exe main.py board.json")
+        sys.exit()
+    else:
+        board = sys.argv[1]
+    if game.is_valid_json(board):
+        game.parse_json(board)
+    else:
+        print('Invalid json file. Loading default board')
+        game.parse_json('board.json')
     screen = pygame.display.set_mode([HEIGHT, WIDTH])
     clock = pygame.time.Clock()
 
